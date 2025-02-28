@@ -1,4 +1,21 @@
 services:
+  traefik:
+    image: "traefik:v3.3"
+    container_name: "traefik"
+    restart: "unless-stopped"
+    command:
+      - "--configFile=/traefik.yml"
+    ports:
+      - "80:80"
+      - "8080:8080"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik.yml:/traefik.yml:ro"
+      - "./acme.json:/acme.json:rw"
+    networks:
+      - traefik-public
+
   redis-queue:
     image: redis:7.0-alpine
     ports:
@@ -19,6 +36,16 @@ services:
     depends_on:
       - users-api
       - redis-queue
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.auth-api.rule=Host(`auth-api.localhost`)"
+      - "traefik.http.routers.auth.entrypoints=websecure"
+      - "traefik.http.routers.auth.tls=true"
+      - "traefik.http.routers.auth.tls.certresolver=letsencrypt"
+      - "traefik.http.services.auth-api.loadbalancer.server.port=8081"
 
   todos-api:
     build: 
@@ -35,6 +62,16 @@ services:
     depends_on:
       - auth-api
       - redis-queue
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.todos-api.rule=Host(`todos-api.localhost`)"
+      - "traefik.http.routers.todos.entrypoints=websecure"
+      - "traefik.http.routers.todos.tls=true"
+      - "traefik.http.routers.todos.tls.certresolver=letsencrypt"
+      - "traefik.http.services.todos-api.loadbalancer.server.port=8082"
 
   users-api:
     build: 
@@ -45,6 +82,16 @@ services:
     environment:
       - SERVER_PORT=${SERVER_PORT}
       - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.users-api.rule=Host(`users-api.localhost`)"
+      - "traefik.http.routers.users.entrypoints=websecure"
+      - "traefik.http.routers.users.tls=true"
+      - "traefik.http.routers.users.tls.certresolver=letsencrypt"
+      - "traefik.http.services.users-api.loadbalancer.server.port=8083"
 
   log-message-processor:
     build:
@@ -62,7 +109,7 @@ services:
       context: ./frontend
     image: frontend:latest
     ports:
-      - "8089:8080"
+      - "8080:8080"
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -72,6 +119,20 @@ services:
     depends_on:
       - auth-api
       - todos-api
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.frontend.rule=Host(`frontend.localhost`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=8080"
+
+networks:
+  traefik-public:
+    external: true
 
 volumes:
   redis-data:

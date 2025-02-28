@@ -1,0 +1,32 @@
+# Static configuration for Traefik
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":443"
+  traefik:
+    address: ":8080"  # Traefik dashboard (optional, for monitoring)
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: traefik-public
+
+api:
+  insecure: false  # Disable insecure API (optional, for security)
+  dashboard: true  # Enable the Traefik dashboard
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "galosikhena@gmail.com"
+      storage: "/acme.json"
+      httpChallenge:
+        entryPoint: "web"
